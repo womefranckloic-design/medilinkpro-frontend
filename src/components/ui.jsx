@@ -8,14 +8,14 @@ export function Card({ children, className = '' }) {
 
 export function Button({ children, variant = 'primary', className = '', ...props }) {
   const variants = {
-    primary: 'bg-(--color-petrol-600) text-white hover:bg-(--color-petrol-700)',
-    amber: 'bg-(--color-amber-400) text-(--color-petrol-900) hover:bg-(--color-amber-500)',
+    primary: 'bg-(--color-petrol-600) text-white hover:bg-(--color-petrol-700) shadow-md shadow-(--color-petrol-600)/20 hover:shadow-lg hover:shadow-(--color-petrol-600)/30',
+    amber: 'bg-(--color-amber-400) text-(--color-petrol-900) hover:bg-(--color-amber-500) shadow-md shadow-(--color-amber-400)/30 hover:shadow-lg hover:shadow-(--color-amber-400)/40',
     ghost: 'bg-transparent text-(--color-petrol-600) hover:bg-(--color-petrol-50)',
     danger: 'bg-(--color-clay-100) text-(--color-clay-500) hover:bg-(--color-clay-100)/70',
   };
   return (
     <button
-      className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${variants[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-none ${variants[variant]} ${className}`}
       {...props}
     >
       {children}
