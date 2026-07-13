@@ -42,6 +42,16 @@ export async function retracterAlerte(alerteId, infirmierId) {
   return data;
 }
 
+// Infirmier : soumettre le compte-rendu de fin d'intervention -> la libere pour une nouvelle alerte.
+export async function soumettreCompteRendu(alerteId, infirmierId, compteRendu) {
+  const { data } = await api.patch(
+    `/api/alertes/${alerteId}/compte-rendu`,
+    { compteRendu },
+    { params: { infirmierId } }
+  );
+  return data;
+}
+
 // Infirmier : ses interventions actuellement en cours (alertes repondues, pas encore notees).
 export async function getInterventionsEnCours(infirmierId) {
   const { data } = await api.get(`/api/alertes/infirmiers/${infirmierId}/en-cours`);

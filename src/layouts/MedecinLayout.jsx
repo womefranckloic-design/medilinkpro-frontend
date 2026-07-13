@@ -1,4 +1,4 @@
-import { LayoutDashboard, CalendarHeart, Users, FileText, UserCog } from 'lucide-react';
+import { LayoutDashboard, CalendarHeart, Users, FileText, UserCog, Building2 } from 'lucide-react';
 import RoleLayout from '../layouts/RoleLayout';
 
 const NAV_ITEMS = [
@@ -6,6 +6,7 @@ const NAV_ITEMS = [
   { to: '/medecin/agenda', label: 'Mon agenda', icon: CalendarHeart },
   { to: '/medecin/patients', label: 'Mes patients', icon: Users },
   { to: '/medecin/consultations', label: 'Consultations', icon: FileText },
+  { to: '/medecin/etablissement', label: 'Mon etablissement', icon: Building2 },
   { to: '/medecin/profil', label: 'Mon profil', icon: UserCog },
 ];
 

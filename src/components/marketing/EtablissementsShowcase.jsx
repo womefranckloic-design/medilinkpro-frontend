@@ -1,86 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Building2, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Building2, MapPin, ArrowRight } from 'lucide-react';
 import { getPublicEtablissements } from '../../api/etablissements';
-import { resolveMediaUrl } from '../../api/client';
-
-const AUTO_SLIDE_MS = 3500;
-
-/**
- * Mini-carousel de photos pour un etablissement : glisse automatiquement,
- * se met en pause au survol, navigable par fleches et puces.
- */
-function PhotoCarousel({ photos, alt }) {
-  const [index, setIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const count = photos.length;
-
-  useEffect(() => {
-    if (count <= 1 || paused) return undefined;
-    const timer = setInterval(() => {
-      setIndex((prev) => (prev + 1) % count);
-    }, AUTO_SLIDE_MS);
-    return () => clearInterval(timer);
-  }, [count, paused]);
-
-  function go(delta) {
-    setIndex((prev) => (prev + delta + count) % count);
-  }
-
-  return (
-    <div
-      className="relative h-48 sm:h-52 overflow-hidden bg-(--color-petrol-50) group"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-    >
-      <div
-        className="flex h-full transition-transform duration-700 ease-out"
-        style={{ transform: `translateX(-${index * 100}%)` }}
-      >
-        {photos.map((url) => (
-          <img
-            key={url}
-            src={resolveMediaUrl(url)}
-            alt={alt}
-            className="w-full h-full object-cover shrink-0"
-          />
-        ))}
-      </div>
-
-      {count > 1 && (
-        <>
-          <button
-            type="button"
-            onClick={() => go(-1)}
-            aria-label="Photo precedente"
-            className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <ChevronLeft size={16} />
-          </button>
-          <button
-            type="button"
-            onClick={() => go(1)}
-            aria-label="Photo suivante"
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <ChevronRight size={16} />
-          </button>
-
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
-            {photos.map((url, i) => (
-              <button
-                key={url}
-                type="button"
-                aria-label={`Aller a la photo ${i + 1}`}
-                onClick={() => setIndex(i)}
-                className={`h-1.5 rounded-full transition-all ${i === index ? 'w-4 bg-white' : 'w-1.5 bg-white/60'}`}
-              />
-            ))}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
+import PhotoCarousel from './PhotoCarousel';
 
 /**
  * Vitrine publique des etablissements de sante crees par les Directeurs,
@@ -111,18 +33,30 @@ export default function EtablissementsShowcase() {
 
   return (
     <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20 border-t border-(--color-petrol-100)/70">
-      <div className="max-w-xl">
-        <h2 className="font-display font-bold text-2xl sm:text-3xl text-(--color-petrol-700)">
-          Nos etablissements partenaires.
-        </h2>
-        <p className="text-(--color-ink-600) mt-3">
-          Decouvrez les hopitaux et cliniques deja presents sur MediLinkPro, en images.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div className="max-w-xl">
+          <h2 className="font-display font-bold text-2xl sm:text-3xl text-(--color-petrol-700)">
+            Nos etablissements partenaires.
+          </h2>
+          <p className="text-(--color-ink-600) mt-3">
+            Decouvrez les hopitaux et cliniques deja presents sur MediLinkPro, en images.
+          </p>
+        </div>
+        <Link
+          to="/etablissements"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-(--color-petrol-600) hover:gap-2.5 transition-all shrink-0"
+        >
+          Voir tout l'annuaire <ArrowRight size={15} />
+        </Link>
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-10">
-        {etablissements.map((e) => (
-          <div key={e.id} className="bg-white rounded-2xl border border-(--color-petrol-100) overflow-hidden">
+        {etablissements.slice(0, 6).map((e) => (
+          <Link
+            key={e.id}
+            to={`/etablissements/${e.id}`}
+            className="bg-white rounded-2xl border border-(--color-petrol-100) overflow-hidden hover:-translate-y-1 hover:shadow-lg hover:shadow-(--color-petrol-900)/10 transition-all duration-300"
+          >
             <PhotoCarousel photos={e.photos} alt={e.nom} />
             <div className="p-4">
               <div className="flex items-start gap-2">
@@ -140,7 +74,7 @@ export default function EtablissementsShowcase() {
                 </p>
               )}
             </div>
-          </div>
+          </Link>
         ))}
       </div>
     </section>

@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BellRing, MapPin, Phone, MessageSquare, Wifi, WifiOff, Clock, CheckCircle2, Star, UndoDot, ClipboardCheck } from 'lucide-react';
-import { getAlertesActives, repondreAlerte, retracterAlerte, getInterventionsEnCours, getNoteMoyenneInfirmier } from '../../api/alertes';
+import { BellRing, MapPin, Phone, MessageSquare, Wifi, WifiOff, Clock, CheckCircle2, Star, UndoDot, ClipboardCheck, Send, Lock } from 'lucide-react';
+import {
+  getAlertesActives, repondreAlerte, retracterAlerte, soumettreCompteRendu,
+  getInterventionsEnCours, getNoteMoyenneInfirmier,
+} from '../../api/alertes';
 import { getToken } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useAlerteSocket } from '../../hooks/useAlerteSocket';
-import { Card, Button, Spinner, EmptyState, PageHeader } from '../../components/ui';
+import { Card, Button, Textarea, Spinner, EmptyState, PageHeader } from '../../components/ui';
 
 /** Petit bip synthetise (Web Audio API) pour signaler une nouvelle alerte sans fichier son externe. */
 function jouerBip() {
@@ -57,10 +60,27 @@ export default function InfirmierAlertesPage() {
   const [loading, setLoading] = useState(true);
   const [enCoursId, setEnCoursId] = useState(null);
   const [retractionId, setRetractionId] = useState(null);
+  const [compteRendus, setCompteRendus] = useState({});
   const [erreur, setErreur] = useState(null);
   const [confirmation, setConfirmation] = useState(null);
   const isFirstLoad = useRef(true);
+  const occupeeRef = useRef(false);
   const token = useMemo(() => getToken(), []);
+
+  // Une infirmiere ne peut gerer qu'une seule intervention a la fois : tant qu'elle
+  // est occupee, on n'affiche/ecoute plus les nouvelles alertes EN_ATTENTE.
+  useEffect(() => {
+    occupeeRef.current = mesInterventions.length > 0;
+  }, [mesInterventions]);
+
+  const chargerAlertesActives = useCallback(async () => {
+    try {
+      const actives = await getAlertesActives();
+      setAlertesEnAttente(actives);
+    } catch {
+      // Silencieux : la liste se remettra a jour au prochain evenement WebSocket.
+    }
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -80,12 +100,13 @@ export default function InfirmierAlertesPage() {
 
   const onAlerteMiseAJour = useCallback((alerte) => {
     if (alerte.statut === 'EN_ATTENTE') {
+      // Occupee : on ignore les nouvelles alertes tant que le compte-rendu n'est pas envoye.
+      if (occupeeRef.current) return;
       setAlertesEnAttente((prev) => {
         if (prev.some((a) => a.id === alerte.id)) return prev.map((a) => (a.id === alerte.id ? alerte : a));
         if (!isFirstLoad.current) jouerBip();
         return [alerte, ...prev];
       });
-      setMesInterventions((prev) => prev.filter((a) => a.id !== alerte.id));
       return;
     }
 
@@ -99,7 +120,7 @@ export default function InfirmierAlertesPage() {
       return;
     }
 
-    // TERMINEE ou ANNULEE : l'alerte disparait des deux listes.
+    // SERVICE_RENDU, TERMINEE ou ANNULEE : l'alerte n'est plus "en cours" pour l'infirmiere.
     setAlertesEnAttente((prev) => prev.filter((a) => a.id !== alerte.id));
     setMesInterventions((prev) => {
       const etaitLaMienne = prev.some((a) => a.id === alerte.id);
@@ -107,9 +128,12 @@ export default function InfirmierAlertesPage() {
         setConfirmation(`Le patient a note votre intervention : ${alerte.note}/5${alerte.commentaire ? ` - "${alerte.commentaire}"` : ''}`);
         setTimeout(() => setConfirmation(null), 6000);
       }
-      return prev.filter((a) => a.id !== alerte.id);
+      const suivante = prev.filter((a) => a.id !== alerte.id);
+      // Elle vient d'etre liberee : on rafraichit les alertes en attente qu'on avait ignorees.
+      if (etaitLaMienne && suivante.length === 0) chargerAlertesActives();
+      return suivante;
     });
-  }, [user.userId]);
+  }, [user.userId, chargerAlertesActives]);
 
   const subscriptions = useMemo(
     () => [{ destination: '/topic/alertes', onMessage: onAlerteMiseAJour }],
@@ -126,8 +150,8 @@ export default function InfirmierAlertesPage() {
       setMesInterventions((prev) => [alerte, ...prev]);
     } catch (err) {
       if (err.response?.status === 409) {
-        setAlertesEnAttente((prev) => prev.filter((a) => a.id !== alerteId));
-        setErreur("Cette alerte venait d'etre prise par une autre infirmiere.");
+        setErreur(err.response?.data?.message || "Cette alerte n'est plus disponible.");
+        chargerAlertesActives();
       } else {
         setErreur('Impossible de repondre a cette alerte pour le moment.');
       }
@@ -142,6 +166,7 @@ export default function InfirmierAlertesPage() {
     try {
       await retracterAlerte(alerteId, user.userId);
       setMesInterventions((prev) => prev.filter((a) => a.id !== alerteId));
+      chargerAlertesActives();
     } catch {
       setErreur("Impossible de vous retracter de cette intervention pour le moment.");
     } finally {
@@ -149,6 +174,31 @@ export default function InfirmierAlertesPage() {
       setRetractionId(null);
     }
   }
+
+  async function handleEnvoyerCompteRendu(alerteId) {
+    const texte = (compteRendus[alerteId] || '').trim();
+    if (!texte) return;
+    setErreur(null);
+    setEnCoursId(alerteId);
+    try {
+      await soumettreCompteRendu(alerteId, user.userId, texte);
+      setMesInterventions((prev) => prev.filter((a) => a.id !== alerteId));
+      setCompteRendus((prev) => {
+        const suite = { ...prev };
+        delete suite[alerteId];
+        return suite;
+      });
+      setConfirmation('Compte-rendu envoye. Vous etes de nouveau disponible pour une nouvelle alerte.');
+      setTimeout(() => setConfirmation(null), 5000);
+      chargerAlertesActives();
+    } catch {
+      setErreur("Impossible d'envoyer le compte-rendu pour le moment.");
+    } finally {
+      setEnCoursId(null);
+    }
+  }
+
+  const occupee = mesInterventions.length > 0;
 
   return (
     <div className="space-y-8">
@@ -187,14 +237,14 @@ export default function InfirmierAlertesPage() {
         </div>
       ) : (
         <>
-          {mesInterventions.length > 0 && (
+          {occupee && (
             <div>
               <h2 className="flex items-center gap-1.5 font-display font-semibold text-(--color-ink-900) mb-3">
-                <ClipboardCheck size={16} /> Mes interventions en cours
+                <ClipboardCheck size={16} /> Mon intervention en cours
               </h2>
               <div className="grid sm:grid-cols-2 gap-4">
                 {mesInterventions.map((a) => (
-                  <Card key={a.id} className="p-5 border-(--color-sage-500)/40">
+                  <Card key={a.id} className="p-5 border-(--color-sage-500)/40 sm:col-span-2">
                     <div className="flex items-start justify-between gap-2">
                       <p className="font-display font-semibold text-(--color-ink-900)">
                         {a.patientPrenom} {a.patientNom}
@@ -213,8 +263,29 @@ export default function InfirmierAlertesPage() {
                       )}
                     </div>
 
+                    <div className="mt-4 pt-4 border-t border-(--color-petrol-100) space-y-2">
+                      <label className="text-sm font-semibold text-(--color-ink-900)">
+                        Compte-rendu de l'intervention
+                      </label>
+                      <Textarea
+                        rows={3}
+                        placeholder="Decrivez le soin apporte, l'etat du patient, les recommandations..."
+                        value={compteRendus[a.id] || ''}
+                        onChange={(e) => setCompteRendus((prev) => ({ ...prev, [a.id]: e.target.value }))}
+                      />
+                      <Button
+                        variant="amber"
+                        className="w-full"
+                        disabled={!(compteRendus[a.id] || '').trim() || enCoursId === a.id}
+                        onClick={() => handleEnvoyerCompteRendu(a.id)}
+                      >
+                        <Send size={15} />
+                        {enCoursId === a.id ? 'Envoi...' : 'Envoyer le compte-rendu et cloturer'}
+                      </Button>
+                    </div>
+
                     {retractionId === a.id ? (
-                      <div className="mt-4 flex items-center gap-2">
+                      <div className="mt-3 flex items-center gap-2">
                         <p className="text-xs text-(--color-ink-600) flex-1">Confirmer la retractation ?</p>
                         <Button variant="ghost" className="!px-3 !py-1.5" onClick={() => setRetractionId(null)}>
                           Non
@@ -229,9 +300,13 @@ export default function InfirmierAlertesPage() {
                         </Button>
                       </div>
                     ) : (
-                      <Button variant="ghost" className="w-full mt-4" onClick={() => setRetractionId(a.id)}>
-                        <UndoDot size={15} /> Un imprevu ? Me retracter
-                      </Button>
+                      <button
+                        type="button"
+                        onClick={() => setRetractionId(a.id)}
+                        className="w-full mt-3 flex items-center justify-center gap-1.5 text-xs text-(--color-ink-300) hover:text-(--color-clay-500) transition-colors"
+                      >
+                        <UndoDot size={13} /> Un imprevu ? Me retracter sans compte-rendu
+                      </button>
                     )}
                   </Card>
                 ))}
@@ -240,12 +315,15 @@ export default function InfirmierAlertesPage() {
           )}
 
           <div>
-            {mesInterventions.length > 0 && (
-              <h2 className="flex items-center gap-1.5 font-display font-semibold text-(--color-ink-900) mb-3">
-                <BellRing size={16} /> Alertes en attente
-              </h2>
-            )}
-            {alertesEnAttente.length === 0 ? (
+            {occupee ? (
+              <Card className="p-6 flex items-center gap-3 bg-(--color-petrol-50)/50 border-dashed">
+                <Lock size={18} className="text-(--color-petrol-400) shrink-0" />
+                <p className="text-sm text-(--color-ink-600)">
+                  Vous etes en intervention. Les nouvelles alertes vous seront proposees
+                  des que vous aurez envoye votre compte-rendu.
+                </p>
+              </Card>
+            ) : alertesEnAttente.length === 0 ? (
               <Card>
                 <EmptyState
                   icon={BellRing}

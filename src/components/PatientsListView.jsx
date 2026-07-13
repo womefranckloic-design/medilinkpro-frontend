@@ -47,6 +47,11 @@ export default function PatientsListView({ description }) {
                 <p className="font-medium text-(--color-ink-900) truncate">{p.prenom} {p.nom}</p>
                 <p className="text-xs text-(--color-ink-300) truncate">{p.email}</p>
                 {p.telephone && <p className="text-xs text-(--color-ink-300)">{p.telephone}</p>}
+                {p.contactUrgenceTelephone && (
+                  <p className="text-xs text-(--color-clay-500) truncate">
+                    Urgence : {p.contactUrgenceNom ? `${p.contactUrgenceNom} - ` : ''}{p.contactUrgenceTelephone}
+                  </p>
+                )}
               </div>
             </Card>
           ))}

@@ -1,10 +1,10 @@
 import { api } from './client';
 
-export async function searchMedecins({ specialite, lat, lng } = {}) {
+export async function searchMedecins({ specialite, ville, quartier } = {}) {
   const params = {};
   if (specialite) params.specialite = specialite;
-  if (lat != null) params.lat = lat;
-  if (lng != null) params.lng = lng;
+  if (ville) params.ville = ville;
+  if (quartier) params.quartier = quartier;
   const { data } = await api.get('/api/medecins/recherche', { params });
   return data;
 }

@@ -33,8 +33,8 @@ const ROLES = [
 
 const INITIAL_FORM = {
   nom: '', prenom: '', email: '', motDePasse: '', telephone: '',
-  dateNaissance: '', groupeSanguin: '',
-  specialite: '', numeroOrdre: '', tarif: '',
+  dateNaissance: '', groupeSanguin: '', contactUrgenceNom: '', contactUrgenceTelephone: '',
+  specialite: '', numeroOrdre: '', tarif: '', ville: '', quartier: '',
 };
 
 export default function RegisterPage() {
@@ -66,11 +66,15 @@ export default function RegisterPage() {
         ...(role === 'PATIENT' && {
           dateNaissance: form.dateNaissance || null,
           groupeSanguin: form.groupeSanguin || null,
+          contactUrgenceNom: form.contactUrgenceNom || null,
+          contactUrgenceTelephone: form.contactUrgenceTelephone || null,
         }),
         ...(role === 'MEDECIN' && {
           specialite: form.specialite || null,
           numeroOrdre: form.numeroOrdre || null,
           tarif: form.tarif ? Number(form.tarif) : null,
+          ville: form.ville || null,
+          quartier: form.quartier || null,
         }),
       };
 
@@ -202,24 +206,45 @@ export default function RegisterPage() {
             </div>
 
             {role === 'PATIENT' && (
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <FieldLabel>Date de naissance</FieldLabel>
-                  <TextInput
-                    type="date"
-                    value={form.dateNaissance}
-                    onChange={(e) => update('dateNaissance', e.target.value)}
-                  />
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <FieldLabel>Date de naissance</FieldLabel>
+                    <TextInput
+                      type="date"
+                      value={form.dateNaissance}
+                      onChange={(e) => update('dateNaissance', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Groupe sanguin</FieldLabel>
+                    <Select value={form.groupeSanguin} onChange={(e) => update('groupeSanguin', e.target.value)}>
+                      {GROUPES_SANGUINS.map((g) => (
+                        <option key={g} value={g}>{GROUPE_LABELS[g]}</option>
+                      ))}
+                    </Select>
+                  </div>
                 </div>
-                <div>
-                  <FieldLabel>Groupe sanguin</FieldLabel>
-                  <Select value={form.groupeSanguin} onChange={(e) => update('groupeSanguin', e.target.value)}>
-                    {GROUPES_SANGUINS.map((g) => (
-                      <option key={g} value={g}>{GROUPE_LABELS[g]}</option>
-                    ))}
-                  </Select>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <FieldLabel>Contact d'urgence (nom)</FieldLabel>
+                    <TextInput
+                      placeholder="Nom d'un proche"
+                      value={form.contactUrgenceNom}
+                      onChange={(e) => update('contactUrgenceNom', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Contact d'urgence (telephone)</FieldLabel>
+                    <TextInput
+                      type="tel"
+                      placeholder="+237 6XX XXX XXX"
+                      value={form.contactUrgenceTelephone}
+                      onChange={(e) => update('contactUrgenceTelephone', e.target.value)}
+                    />
+                  </div>
                 </div>
-              </div>
+              </>
             )}
 
             {role === 'MEDECIN' && (
@@ -251,6 +276,24 @@ export default function RegisterPage() {
                       placeholder="15000"
                       value={form.tarif}
                       onChange={(e) => update('tarif', e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <FieldLabel>Ville</FieldLabel>
+                    <TextInput
+                      placeholder="Yaounde"
+                      value={form.ville}
+                      onChange={(e) => update('ville', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Quartier</FieldLabel>
+                    <TextInput
+                      placeholder="Bastos"
+                      value={form.quartier}
+                      onChange={(e) => update('quartier', e.target.value)}
                     />
                   </div>
                 </div>

@@ -1,15 +1,15 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, MapPin, BadgeCheck, Navigation, Loader2 } from 'lucide-react';
+import { Search, MapPin, BadgeCheck } from 'lucide-react';
 import { searchMedecins } from '../../api/medecins';
 import { Card, Button, TextInput, Spinner, EmptyState } from '../../components/ui';
 
 export default function RechercheMedecinsPage() {
   const [specialite, setSpecialite] = useState('');
+  const [ville, setVille] = useState('');
+  const [quartier, setQuartier] = useState('');
   const [medecins, setMedecins] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [coords, setCoords] = useState(null);
-  const [locating, setLocating] = useState(false);
 
   const runSearch = useCallback(async (params) => {
     setLoading(true);
@@ -29,29 +29,18 @@ export default function RechercheMedecinsPage() {
 
   function handleSubmit(e) {
     e.preventDefault();
-    runSearch({ specialite: specialite || undefined, lat: coords?.lat, lng: coords?.lng });
-  }
-
-  function handleLocate() {
-    if (!navigator.geolocation) return;
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const newCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setCoords(newCoords);
-        setLocating(false);
-        runSearch({ specialite: specialite || undefined, ...newCoords });
-      },
-      () => setLocating(false),
-      { timeout: 8000 }
-    );
+    runSearch({
+      specialite: specialite || undefined,
+      ville: ville || undefined,
+      quartier: quartier || undefined,
+    });
   }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="font-display font-bold text-2xl text-(--color-petrol-700)">Trouver un specialiste</h1>
-        <p className="text-(--color-ink-600) mt-1">Recherchez par specialite et triez par proximite.</p>
+        <p className="text-(--color-ink-600) mt-1">Recherchez par specialite, ville ou quartier.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3">
@@ -64,10 +53,18 @@ export default function RechercheMedecinsPage() {
             className="pl-10"
           />
         </div>
-        <Button type="button" variant="ghost" onClick={handleLocate} disabled={locating}>
-          {locating ? <Loader2 size={16} className="animate-spin" /> : <Navigation size={16} />}
-          {coords ? 'Position activee' : 'Pres de moi'}
-        </Button>
+        <TextInput
+          placeholder="Ville (ex: Yaounde)"
+          value={ville}
+          onChange={(e) => setVille(e.target.value)}
+          className="sm:w-44"
+        />
+        <TextInput
+          placeholder="Quartier (ex: Bastos)"
+          value={quartier}
+          onChange={(e) => setQuartier(e.target.value)}
+          className="sm:w-44"
+        />
         <Button type="submit">Rechercher</Button>
       </form>
 
@@ -77,7 +74,7 @@ export default function RechercheMedecinsPage() {
         </div>
       ) : medecins.length === 0 ? (
         <Card>
-          <EmptyState icon={Search} title="Aucun specialiste trouve" description="Essayez une autre specialite ou elargissez votre recherche." />
+          <EmptyState icon={Search} title="Aucun specialiste trouve" description="Essayez une autre specialite, ville ou quartier." />
         </Card>
       ) : (
         <div className="grid sm:grid-cols-2 gap-4">
@@ -99,8 +96,10 @@ export default function RechercheMedecinsPage() {
                 {m.etablissementNom && (
                   <p className="flex items-center gap-1.5"><MapPin size={14} /> {m.etablissementNom}</p>
                 )}
-                {m.distanceApprox != null && (
-                  <p className="text-(--color-petrol-600) font-medium">{m.distanceApprox} km de vous</p>
+                {(m.ville || m.quartier) && (
+                  <p className="flex items-center gap-1.5">
+                    <MapPin size={14} /> {[m.quartier, m.ville].filter(Boolean).join(', ')}
+                  </p>
                 )}
                 {m.tarif != null && (
                   <p>Consultation : <span className="font-medium text-(--color-ink-900)">{m.tarif} FCFA</span></p>

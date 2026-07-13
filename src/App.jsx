@@ -5,6 +5,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import LandingPage from './pages/marketing/LandingPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import EtablissementsPubliquesPage from './pages/public/EtablissementsPubliquesPage';
+import EtablissementDetailPage from './pages/public/EtablissementDetailPage';
 
 // Espace Patient
 import PatientLayout from './layouts/PatientLayout';
@@ -26,6 +28,7 @@ import MedecinAgendaPage from './pages/medecin/MedecinAgendaPage';
 import MedecinPatientsPage from './pages/medecin/MedecinPatientsPage';
 import MedecinConsultationsPage from './pages/medecin/MedecinConsultationsPage';
 import MedecinProfilPage from './pages/medecin/MedecinProfilPage';
+import MedecinEtablissementPage from './pages/medecin/MedecinEtablissementPage';
 
 // Espace Secretaire
 import SecretaireLayout from './layouts/SecretaireLayout';
@@ -45,6 +48,7 @@ import DirecteurPatientsPage from './pages/directeur/DirecteurPatientsPage';
 import AdminLayout from './layouts/AdminLayout';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AdminComptesPage from './pages/admin/AdminComptesPage';
+import AdminUtilisateursPage from './pages/admin/AdminUtilisateursPage';
 import AdminEtablissementsPage from './pages/admin/AdminEtablissementsPage';
 
 function Espace({ role, Layout, children }) {
@@ -64,6 +68,8 @@ export default function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/connexion" element={<LoginPage />} />
           <Route path="/inscription" element={<RegisterPage />} />
+          <Route path="/etablissements" element={<EtablissementsPubliquesPage />} />
+          <Route path="/etablissements/:id" element={<EtablissementDetailPage />} />
 
           {/* Espace Patient */}
           <Route path="/patient" element={<Espace role="PATIENT" Layout={PatientLayout}><DashboardPage /></Espace>} />
@@ -81,6 +87,7 @@ export default function App() {
           <Route path="/medecin/agenda" element={<Espace role="MEDECIN" Layout={MedecinLayout}><MedecinAgendaPage /></Espace>} />
           <Route path="/medecin/patients" element={<Espace role="MEDECIN" Layout={MedecinLayout}><MedecinPatientsPage /></Espace>} />
           <Route path="/medecin/consultations" element={<Espace role="MEDECIN" Layout={MedecinLayout}><MedecinConsultationsPage /></Espace>} />
+          <Route path="/medecin/etablissement" element={<Espace role="MEDECIN" Layout={MedecinLayout}><MedecinEtablissementPage /></Espace>} />
           <Route path="/medecin/profil" element={<Espace role="MEDECIN" Layout={MedecinLayout}><MedecinProfilPage /></Espace>} />
 
           {/* Espace Secretaire */}
@@ -98,6 +105,7 @@ export default function App() {
           {/* Espace Admin */}
           <Route path="/admin" element={<Espace role="ADMIN" Layout={AdminLayout}><AdminDashboardPage /></Espace>} />
           <Route path="/admin/comptes" element={<Espace role="ADMIN" Layout={AdminLayout}><AdminComptesPage /></Espace>} />
+          <Route path="/admin/utilisateurs" element={<Espace role="ADMIN" Layout={AdminLayout}><AdminUtilisateursPage /></Espace>} />
           <Route path="/admin/etablissements" element={<Espace role="ADMIN" Layout={AdminLayout}><AdminEtablissementsPage /></Espace>} />
         </Routes>
       </BrowserRouter>

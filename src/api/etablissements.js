@@ -11,6 +11,18 @@ export async function getPublicEtablissements() {
   return data;
 }
 
+// Fiche publique d'un etablissement (annuaire visiteurs, sans authentification).
+export async function getPublicEtablissement(id) {
+  const { data } = await api.get(`/api/etablissements/public/${id}`);
+  return data;
+}
+
+// Enregistre une visite publique (compteur visible par tous) et retourne l'etablissement a jour.
+export async function enregistrerVisiteEtablissement(id) {
+  const { data } = await api.post(`/api/etablissements/public/${id}/visite`);
+  return data;
+}
+
 export async function getEtablissement(id) {
   const { data } = await api.get(`/api/etablissements/${id}`);
   return data;

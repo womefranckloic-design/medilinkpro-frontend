@@ -102,9 +102,9 @@ function MockSearchCard() {
 
       <div className="space-y-2.5">
         {[
-          { nom: 'Dr Ngono Paul', tag: 'Cardiologue', dist: '1.2 km', verifie: true },
-          { nom: 'Dr Atangana Liz', tag: 'Cardiologue', dist: '2.8 km', verifie: true },
-          { nom: 'Dr Biloa Marc', tag: 'Cardiologue', dist: '4.1 km', verifie: false },
+          { nom: 'Dr Ngono Paul', tag: 'Cardiologue', dist: 'Bastos', verifie: true },
+          { nom: 'Dr Atangana Liz', tag: 'Cardiologue', dist: 'Mvog-Mbi', verifie: true },
+          { nom: 'Dr Biloa Marc', tag: 'Cardiologue', dist: 'Essos', verifie: false },
         ].map((m) => (
           <div key={m.nom} className="flex items-center justify-between gap-3 border border-(--color-petrol-100) rounded-xl px-3.5 py-3 hover:bg-(--color-petrol-50)/50 transition-colors">
             <div>

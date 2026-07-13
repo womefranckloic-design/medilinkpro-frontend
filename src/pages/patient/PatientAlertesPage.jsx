@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BellRing, MapPin, MessageSquare, Send, X, Clock, UserCheck, History, Star, RefreshCw } from 'lucide-react';
+import { BellRing, MapPin, MessageSquare, Send, X, Clock, UserCheck, History, Star, RefreshCw, ClipboardCheck } from 'lucide-react';
 import { creerAlerte, annulerAlerte, noterAlerte, getMesAlertes } from '../../api/alertes';
 import { getToken } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
@@ -9,9 +9,12 @@ import { Card, Button, TextInput, FieldLabel, Textarea, Spinner, PageHeader, Emp
 const STATUT_META = {
   EN_ATTENTE: { label: "En attente d'une infirmiere", className: 'bg-(--color-amber-400)/20 text-(--color-amber-500)' },
   REPONDUE: { label: 'En cours', className: 'bg-(--color-sage-100) text-(--color-sage-500)' },
+  SERVICE_RENDU: { label: 'A noter', className: 'bg-(--color-amber-400)/20 text-(--color-amber-500)' },
   TERMINEE: { label: 'Terminee', className: 'bg-(--color-petrol-100) text-(--color-petrol-600)' },
   ANNULEE: { label: 'Annulee', className: 'bg-(--color-clay-100) text-(--color-clay-500)' },
 };
+
+const STATUTS_EN_COURS = ['EN_ATTENTE', 'REPONDUE', 'SERVICE_RENDU'];
 
 function formatDateHeure(iso) {
   return new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -55,7 +58,7 @@ export default function PatientAlertesPage() {
     try {
       const data = await getMesAlertes(user.userId);
       setHistorique(data);
-      const active = data.find((a) => a.statut === 'EN_ATTENTE' || a.statut === 'REPONDUE');
+      const active = data.find((a) => STATUTS_EN_COURS.includes(a.statut));
       setAlerteEnCours(active || null);
     } finally {
       setLoadingHistorique(false);
@@ -151,32 +154,38 @@ export default function PatientAlertesPage() {
         </div>
       )}
 
-      {alerteEnCours && ['EN_ATTENTE', 'REPONDUE'].includes(alerteEnCours.statut) ? (
+      {alerteEnCours && STATUTS_EN_COURS.includes(alerteEnCours.statut) ? (
         <Card
           className={`p-6 sm:p-8 ${
-            alerteEnCours.statut === 'REPONDUE' ? 'border-(--color-sage-500)/40' : 'border-(--color-amber-400)/50'
+            alerteEnCours.statut === 'EN_ATTENTE' ? 'border-(--color-amber-400)/50' : 'border-(--color-sage-500)/40'
           }`}
         >
           <div className="flex items-center gap-3">
             <div
               className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${
-                alerteEnCours.statut === 'REPONDUE' ? 'bg-(--color-sage-100)' : 'bg-(--color-amber-400)/20'
+                alerteEnCours.statut === 'EN_ATTENTE' ? 'bg-(--color-amber-400)/20' : 'bg-(--color-sage-100)'
               }`}
             >
-              {alerteEnCours.statut === 'REPONDUE' ? (
+              {alerteEnCours.statut === 'EN_ATTENTE' ? (
+                <BellRing size={20} className="text-(--color-amber-500) animate-pulse" />
+              ) : alerteEnCours.statut === 'REPONDUE' ? (
                 <UserCheck size={20} className="text-(--color-sage-500)" />
               ) : (
-                <BellRing size={20} className="text-(--color-amber-500) animate-pulse" />
+                <ClipboardCheck size={20} className="text-(--color-sage-500)" />
               )}
             </div>
             <div>
               <p className="font-display font-semibold text-(--color-ink-900)">
-                {alerteEnCours.statut === 'REPONDUE' ? 'Alerte repondue !' : 'Votre alerte a ete envoyee'}
+                {alerteEnCours.statut === 'EN_ATTENTE' && "Votre alerte a ete envoyee"}
+                {alerteEnCours.statut === 'REPONDUE' && 'Alerte repondue !'}
+                {alerteEnCours.statut === 'SERVICE_RENDU' && 'Intervention terminee'}
               </p>
               <p className="text-sm text-(--color-ink-600)">
-                {alerteEnCours.statut === 'REPONDUE'
-                  ? `${alerteEnCours.infirmierPrenom} ${alerteEnCours.infirmierNom}, infirmier(e), a repondu present et arrive.`
-                  : "En attente qu'une infirmiere connectee reponde present..."}
+                {alerteEnCours.statut === 'EN_ATTENTE' && "En attente qu'une infirmiere connectee reponde present..."}
+                {alerteEnCours.statut === 'REPONDUE' &&
+                  `${alerteEnCours.infirmierPrenom} ${alerteEnCours.infirmierNom}, infirmier(e), a repondu present et arrive.`}
+                {alerteEnCours.statut === 'SERVICE_RENDU' &&
+                  `${alerteEnCours.infirmierPrenom} ${alerteEnCours.infirmierNom} a termine le soin. Vous pouvez noter l'intervention.`}
               </p>
             </div>
           </div>
@@ -192,19 +201,36 @@ export default function PatientAlertesPage() {
           )}
 
           {alerteEnCours.statut === 'REPONDUE' && (
-            <form onSubmit={handleNoter} className="mt-6 pt-6 border-t border-(--color-petrol-100) space-y-3">
-              <p className="text-sm font-semibold text-(--color-ink-900)">Le soin est termine ? Notez l'intervention :</p>
-              <EtoilesNotation valeur={notation.note} onChange={(n) => setNotation((prev) => ({ ...prev, note: n }))} />
-              <Textarea
-                rows={2}
-                placeholder="Un commentaire (optionnel)..."
-                value={notation.commentaire}
-                onChange={(e) => setNotation((prev) => ({ ...prev, commentaire: e.target.value }))}
-              />
-              <Button type="submit" variant="amber" disabled={notation.note === 0 || envoiNotation} className="w-full">
-                {envoiNotation ? 'Envoi...' : 'Terminer et noter'}
-              </Button>
-            </form>
+            <div className="mt-5 flex items-center gap-2 text-sm text-(--color-ink-600) bg-(--color-petrol-50) rounded-xl px-4 py-3">
+              <ClipboardCheck size={15} className="shrink-0 text-(--color-petrol-400)" />
+              Vous pourrez noter l'intervention des que l'infirmiere aura envoye son compte-rendu.
+            </div>
+          )}
+
+          {alerteEnCours.statut === 'SERVICE_RENDU' && (
+            <div className="mt-6 pt-6 border-t border-(--color-petrol-100) space-y-4">
+              {alerteEnCours.compteRendu && (
+                <div className="bg-(--color-petrol-50) rounded-xl px-4 py-3">
+                  <p className="text-xs font-semibold text-(--color-petrol-600) uppercase tracking-wide mb-1">
+                    Compte-rendu de l'infirmiere
+                  </p>
+                  <p className="text-sm text-(--color-ink-600)">{alerteEnCours.compteRendu}</p>
+                </div>
+              )}
+              <form onSubmit={handleNoter} className="space-y-3">
+                <p className="text-sm font-semibold text-(--color-ink-900)">Notez l'intervention :</p>
+                <EtoilesNotation valeur={notation.note} onChange={(n) => setNotation((prev) => ({ ...prev, note: n }))} />
+                <Textarea
+                  rows={2}
+                  placeholder="Un commentaire (optionnel)..."
+                  value={notation.commentaire}
+                  onChange={(e) => setNotation((prev) => ({ ...prev, commentaire: e.target.value }))}
+                />
+                <Button type="submit" variant="amber" disabled={notation.note === 0 || envoiNotation} className="w-full">
+                  {envoiNotation ? 'Envoi...' : 'Terminer et noter'}
+                </Button>
+              </form>
+            </div>
           )}
         </Card>
       ) : (

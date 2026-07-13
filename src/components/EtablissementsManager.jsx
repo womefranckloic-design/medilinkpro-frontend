@@ -1,15 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
-import { Building2, MapPin, Phone, Plus, X, Pencil, Trash2, ImagePlus, ImageOff } from 'lucide-react';
+import {
+  Building2, MapPin, Phone, Plus, X, Pencil, Trash2, ImagePlus, ImageOff,
+  Megaphone, ChevronDown, ChevronUp, Ban, Stethoscope, Send,
+} from 'lucide-react';
 import {
   getAllEtablissements, createEtablissement, updateEtablissement, deleteEtablissement,
   uploadEtablissementPhotos, deleteEtablissementPhoto,
 } from '../api/etablissements';
+import {
+  creerCampagne, getCampagnesEtablissement, desactiverCampagne, supprimerCampagne,
+} from '../api/campagnes';
+import { getAllMedecins } from '../api/medecins';
+import { inviterMedecin, getDemandesEtablissement } from '../api/integration';
 import { resolveMediaUrl } from '../api/client';
 import {
-  Card, Button, Spinner, EmptyState, PageHeader, FieldLabel, TextInput,
+  Card, Button, Spinner, EmptyState, PageHeader, FieldLabel, TextInput, Textarea, Select,
 } from './ui';
 
-const INITIAL_FORM = { nom: '', type: '', adresse: '', telephone: '', latitude: '', longitude: '', specialitesDisponibles: '' };
+const INITIAL_FORM = { nom: '', type: '', adresse: '', telephone: '', ville: '', quartier: '', specialitesDisponibles: '' };
+const INITIAL_CAMPAGNE_FORM = { titre: '', description: '', dateDebut: '', dateFin: '' };
 
 /**
  * Gestion CRUD complete des etablissements de sante, partagee entre les
@@ -26,6 +35,19 @@ export default function EtablissementsManager({ description }) {
   const [uploadingId, setUploadingId] = useState(null);
   const [photoError, setPhotoError] = useState({});
   const fileInputRefs = useRef({});
+
+  const [campagnesOuvertes, setCampagnesOuvertes] = useState({});
+  const [campagnesParEtab, setCampagnesParEtab] = useState({});
+  const [campagneForm, setCampagneForm] = useState({});
+  const [campagneSubmitting, setCampagneSubmitting] = useState(null);
+  const [campagneErreur, setCampagneErreur] = useState({});
+
+  const [medecinsOuvert, setMedecinsOuvert] = useState({});
+  const [tousLesMedecins, setTousLesMedecins] = useState([]);
+  const [demandesParEtab, setDemandesParEtab] = useState({});
+  const [medecinChoisi, setMedecinChoisi] = useState({});
+  const [inviteSubmitting, setInviteSubmitting] = useState(null);
+  const [inviteErreur, setInviteErreur] = useState({});
 
   async function load() {
     setLoading(true);
@@ -58,8 +80,8 @@ export default function EtablissementsManager({ description }) {
       type: e.type || '',
       adresse: e.adresse || '',
       telephone: e.telephone || '',
-      latitude: e.latitude ?? '',
-      longitude: e.longitude ?? '',
+      ville: e.ville || '',
+      quartier: e.quartier || '',
       specialitesDisponibles: (e.specialitesDisponibles || []).join(', '),
     });
     setShowForm(true);
@@ -74,8 +96,8 @@ export default function EtablissementsManager({ description }) {
         type: form.type || null,
         adresse: form.adresse || null,
         telephone: form.telephone || null,
-        latitude: form.latitude ? Number(form.latitude) : null,
-        longitude: form.longitude ? Number(form.longitude) : null,
+        ville: form.ville || null,
+        quartier: form.quartier || null,
         specialitesDisponibles: form.specialitesDisponibles
           ? form.specialitesDisponibles.split(',').map((s) => s.trim()).filter(Boolean)
           : [],
@@ -128,6 +150,96 @@ export default function EtablissementsManager({ description }) {
     }
   }
 
+  async function toggleCampagnes(id) {
+    const estOuvert = campagnesOuvertes[id];
+    setCampagnesOuvertes((prev) => ({ ...prev, [id]: !estOuvert }));
+    if (!estOuvert && !campagnesParEtab[id]) {
+      try {
+        const data = await getCampagnesEtablissement(id);
+        setCampagnesParEtab((prev) => ({ ...prev, [id]: data }));
+      } catch {
+        setCampagnesParEtab((prev) => ({ ...prev, [id]: [] }));
+      }
+    }
+  }
+
+  function updateCampagneForm(id, field, value) {
+    setCampagneForm((prev) => ({
+      ...prev,
+      [id]: { ...(prev[id] || INITIAL_CAMPAGNE_FORM), [field]: value },
+    }));
+  }
+
+  async function handleCreerCampagne(id) {
+    const form = campagneForm[id] || INITIAL_CAMPAGNE_FORM;
+    if (!form.titre?.trim() || !form.dateDebut) return;
+    setCampagneSubmitting(id);
+    setCampagneErreur((prev) => ({ ...prev, [id]: null }));
+    try {
+      const nouvelle = await creerCampagne(id, {
+        titre: form.titre,
+        description: form.description || null,
+        dateDebut: form.dateDebut,
+        dateFin: form.dateFin || null,
+      });
+      setCampagnesParEtab((prev) => ({ ...prev, [id]: [nouvelle, ...(prev[id] || [])] }));
+      setCampagneForm((prev) => ({ ...prev, [id]: INITIAL_CAMPAGNE_FORM }));
+    } catch {
+      setCampagneErreur((prev) => ({ ...prev, [id]: 'Impossible de creer la campagne. Verifiez les champs.' }));
+    } finally {
+      setCampagneSubmitting(null);
+    }
+  }
+
+  async function handleDesactiverCampagne(etabId, campagneId) {
+    const maj = await desactiverCampagne(campagneId);
+    setCampagnesParEtab((prev) => ({
+      ...prev,
+      [etabId]: (prev[etabId] || []).map((c) => (c.id === campagneId ? maj : c)),
+    }));
+  }
+
+  async function handleSupprimerCampagne(etabId, campagneId) {
+    await supprimerCampagne(campagneId);
+    setCampagnesParEtab((prev) => ({
+      ...prev,
+      [etabId]: (prev[etabId] || []).filter((c) => c.id !== campagneId),
+    }));
+  }
+
+  async function toggleMedecins(id) {
+    const estOuvert = medecinsOuvert[id];
+    setMedecinsOuvert((prev) => ({ ...prev, [id]: !estOuvert }));
+    if (!estOuvert) {
+      try {
+        if (tousLesMedecins.length === 0) {
+          const data = await getAllMedecins();
+          setTousLesMedecins(data);
+        }
+        const demandes = await getDemandesEtablissement(id);
+        setDemandesParEtab((prev) => ({ ...prev, [id]: demandes }));
+      } catch {
+        setDemandesParEtab((prev) => ({ ...prev, [id]: [] }));
+      }
+    }
+  }
+
+  async function handleInviterMedecin(etabId) {
+    const medecinId = medecinChoisi[etabId];
+    if (!medecinId) return;
+    setInviteSubmitting(etabId);
+    setInviteErreur((prev) => ({ ...prev, [etabId]: null }));
+    try {
+      const nouvelle = await inviterMedecin(etabId, medecinId);
+      setDemandesParEtab((prev) => ({ ...prev, [etabId]: [nouvelle, ...(prev[etabId] || [])] }));
+      setMedecinChoisi((prev) => ({ ...prev, [etabId]: '' }));
+    } catch {
+      setInviteErreur((prev) => ({ ...prev, [etabId]: 'Impossible d\'envoyer cette invitation (deja envoyee ou medecin deja membre).' }));
+    } finally {
+      setInviteSubmitting(null);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center py-20">
@@ -172,12 +284,12 @@ export default function EtablissementsManager({ description }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <FieldLabel>Latitude</FieldLabel>
-                <TextInput type="number" step="any" value={form.latitude} onChange={(e) => update('latitude', e.target.value)} />
+                <FieldLabel>Ville</FieldLabel>
+                <TextInput placeholder="Yaounde" value={form.ville} onChange={(e) => update('ville', e.target.value)} />
               </div>
               <div>
-                <FieldLabel>Longitude</FieldLabel>
-                <TextInput type="number" step="any" value={form.longitude} onChange={(e) => update('longitude', e.target.value)} />
+                <FieldLabel>Quartier</FieldLabel>
+                <TextInput placeholder="Bastos" value={form.quartier} onChange={(e) => update('quartier', e.target.value)} />
               </div>
             </div>
             <div>
@@ -271,6 +383,9 @@ export default function EtablissementsManager({ description }) {
                 </div>
                 <div className="mt-3 space-y-1 text-sm text-(--color-ink-600)">
                   {e.adresse && <p className="flex items-center gap-1.5"><MapPin size={14} /> {e.adresse}</p>}
+                  {(e.ville || e.quartier) && (
+                    <p className="flex items-center gap-1.5"><MapPin size={14} /> {[e.quartier, e.ville].filter(Boolean).join(', ')}</p>
+                  )}
                   {e.telephone && <p className="flex items-center gap-1.5"><Phone size={14} /> {e.telephone}</p>}
                 </div>
                 {e.specialitesDisponibles?.length > 0 && (
@@ -280,6 +395,159 @@ export default function EtablissementsManager({ description }) {
                         {s}
                       </span>
                     ))}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => toggleCampagnes(e.id)}
+                  className="w-full flex items-center justify-between gap-2 text-sm font-semibold text-(--color-clay-500) mt-4 pt-4 border-t border-(--color-petrol-100)"
+                >
+                  <span className="flex items-center gap-1.5"><Megaphone size={15} /> Campagnes</span>
+                  {campagnesOuvertes[e.id] ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                </button>
+
+                {campagnesOuvertes[e.id] && (
+                  <div className="mt-3 space-y-3">
+                    {(campagnesParEtab[e.id] || []).map((c) => (
+                      <div key={c.id} className="bg-(--color-petrol-50)/60 rounded-xl p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-(--color-ink-900)">{c.titre}</p>
+                            {c.description && <p className="text-xs text-(--color-ink-600) mt-0.5">{c.description}</p>}
+                            <p className="text-[11px] text-(--color-ink-300) mt-1">
+                              {c.dateDebut}{c.dateFin ? ` -> ${c.dateFin}` : ' (sans date de fin)'}
+                            </p>
+                          </div>
+                          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${
+                            c.active ? 'bg-(--color-sage-100) text-(--color-sage-500)' : 'bg-(--color-petrol-100) text-(--color-ink-300)'
+                          }`}>
+                            {c.active ? 'Active' : c.actif ? 'A venir/expiree' : 'Arretee'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 mt-2">
+                          {c.actif && (
+                            <button
+                              type="button"
+                              onClick={() => handleDesactiverCampagne(e.id, c.id)}
+                              className="flex items-center gap-1 text-xs text-(--color-ink-300) hover:text-(--color-clay-500)"
+                            >
+                              <Ban size={12} /> Arreter
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleSupprimerCampagne(e.id, c.id)}
+                            className="flex items-center gap-1 text-xs text-(--color-ink-300) hover:text-(--color-clay-500)"
+                          >
+                            <Trash2 size={12} /> Supprimer
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="bg-white border border-dashed border-(--color-petrol-200) rounded-xl p-3 space-y-2">
+                      <TextInput
+                        placeholder="Titre de la campagne (ex: Vaccination gratuite)"
+                        value={campagneForm[e.id]?.titre || ''}
+                        onChange={(ev) => updateCampagneForm(e.id, 'titre', ev.target.value)}
+                      />
+                      <Textarea
+                        rows={2}
+                        placeholder="Description (optionnel)"
+                        value={campagneForm[e.id]?.description || ''}
+                        onChange={(ev) => updateCampagneForm(e.id, 'description', ev.target.value)}
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <FieldLabel>Debut</FieldLabel>
+                          <TextInput
+                            type="date"
+                            value={campagneForm[e.id]?.dateDebut || ''}
+                            onChange={(ev) => updateCampagneForm(e.id, 'dateDebut', ev.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <FieldLabel>Fin (optionnel)</FieldLabel>
+                          <TextInput
+                            type="date"
+                            value={campagneForm[e.id]?.dateFin || ''}
+                            onChange={(ev) => updateCampagneForm(e.id, 'dateFin', ev.target.value)}
+                          />
+                        </div>
+                      </div>
+                      {campagneErreur[e.id] && (
+                        <p className="text-xs text-(--color-clay-500)">{campagneErreur[e.id]}</p>
+                      )}
+                      <Button
+                        variant="ghost"
+                        className="w-full !py-2"
+                        disabled={campagneSubmitting === e.id || !campagneForm[e.id]?.titre?.trim() || !campagneForm[e.id]?.dateDebut}
+                        onClick={() => handleCreerCampagne(e.id)}
+                      >
+                        <Plus size={14} /> {campagneSubmitting === e.id ? 'Envoi...' : 'Lancer la campagne'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => toggleMedecins(e.id)}
+                  className="w-full flex items-center justify-between gap-2 text-sm font-semibold text-(--color-petrol-600) mt-3 pt-3 border-t border-(--color-petrol-100)"
+                >
+                  <span className="flex items-center gap-1.5"><Stethoscope size={15} /> Medecins de l'etablissement</span>
+                  {medecinsOuvert[e.id] ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                </button>
+
+                {medecinsOuvert[e.id] && (
+                  <div className="mt-3 space-y-3">
+                    <div className="flex flex-wrap gap-1.5">
+                      {tousLesMedecins.filter((m) => m.etablissementId === e.id).length === 0 ? (
+                        <p className="text-xs text-(--color-ink-300)">Aucun medecin rattache pour l'instant.</p>
+                      ) : (
+                        tousLesMedecins.filter((m) => m.etablissementId === e.id).map((m) => (
+                          <span key={m.id} className="text-xs font-medium px-2.5 py-1 rounded-full bg-(--color-sage-100) text-(--color-sage-500)">
+                            Dr {m.prenom} {m.nom}
+                          </span>
+                        ))
+                      )}
+                    </div>
+
+                    {(demandesParEtab[e.id] || []).filter((d) => d.statut === 'EN_ATTENTE').length > 0 && (
+                      <div className="space-y-1.5">
+                        {(demandesParEtab[e.id] || []).filter((d) => d.statut === 'EN_ATTENTE').map((d) => (
+                          <p key={d.id} className="text-xs text-(--color-amber-500) bg-(--color-amber-400)/10 rounded-lg px-2.5 py-1.5">
+                            {d.initiateur === 'ETABLISSEMENT' ? 'Invitation envoyee a' : 'Demande recue de'} Dr {d.medecinPrenom} {d.medecinNom} - en attente
+                          </p>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <Select
+                          value={medecinChoisi[e.id] || ''}
+                          onChange={(ev) => setMedecinChoisi((prev) => ({ ...prev, [e.id]: ev.target.value }))}
+                        >
+                          <option value="">Choisir un medecin a inviter...</option>
+                          {tousLesMedecins.filter((m) => m.etablissementId !== e.id).map((m) => (
+                            <option key={m.id} value={m.id}>Dr {m.prenom} {m.nom} - {m.specialite || 'Generaliste'}</option>
+                          ))}
+                        </Select>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        className="!px-3 shrink-0"
+                        disabled={!medecinChoisi[e.id] || inviteSubmitting === e.id}
+                        onClick={() => handleInviterMedecin(e.id)}
+                      >
+                        <Send size={14} />
+                      </Button>
+                    </div>
+                    {inviteErreur[e.id] && (
+                      <p className="text-xs text-(--color-clay-500)">{inviteErreur[e.id]}</p>
+                    )}
                   </div>
                 )}
               </div>

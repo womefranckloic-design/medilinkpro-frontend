@@ -35,8 +35,8 @@ export default function MedecinProfilPage() {
         specialite: form.specialite,
         numeroOrdre: form.numeroOrdre,
         tarif: form.tarif !== '' && form.tarif != null ? Number(form.tarif) : null,
-        latitude: form.latitude !== '' && form.latitude != null ? Number(form.latitude) : null,
-        longitude: form.longitude !== '' && form.longitude != null ? Number(form.longitude) : null,
+        ville: form.ville || null,
+        quartier: form.quartier || null,
       });
       setForm(updated);
       setSaved(true);
@@ -93,16 +93,16 @@ export default function MedecinProfilPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <FieldLabel>Latitude</FieldLabel>
-              <TextInput type="number" step="any" value={form.latitude ?? ''} onChange={(e) => update('latitude', e.target.value)} />
+              <FieldLabel>Ville</FieldLabel>
+              <TextInput placeholder="Yaounde" value={form.ville || ''} onChange={(e) => update('ville', e.target.value)} />
             </div>
             <div>
-              <FieldLabel>Longitude</FieldLabel>
-              <TextInput type="number" step="any" value={form.longitude ?? ''} onChange={(e) => update('longitude', e.target.value)} />
+              <FieldLabel>Quartier</FieldLabel>
+              <TextInput placeholder="Bastos" value={form.quartier || ''} onChange={(e) => update('quartier', e.target.value)} />
             </div>
           </div>
           <p className="text-xs text-(--color-ink-300)">
-            La position determine votre visibilite dans la recherche geolocalisee des patients.
+            La ville et le quartier determinent votre visibilite dans la recherche des patients.
           </p>
 
           <div className="flex items-center gap-3">
